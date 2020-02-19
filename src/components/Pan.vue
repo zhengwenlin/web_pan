@@ -8,10 +8,12 @@
        
        <div class="nav-cont">
          <div 
-           :class="item.id === 1 ? 'active' : ''"
-           v-for="item in navitemList"
+           :class="currentCkNavIndex === index ? 'active' : ''"
+           v-for="(item, index) in navitemList"
            :key="item.id"
-           class="nav-item" >{{ item.name }}</div>
+           class="nav-item" 
+           @click="handleCKNavItemClick(index)"
+         >{{ item.name }}</div>
          <div class="item-icon" @click="handleCKmangeClick">
            仓库管理
          </div>
@@ -28,9 +30,9 @@
                 </span>
               </div>
               <div 
-                v-for="item in wenanList"
+                v-for="item in rackNavList"
                 :Key="item.id"
-                class="wen-li" @click="addToBread(item, true)">{{ item.name }}</div>
+                class="wen-li" @click="addToBread(item, true)">{{ item.docName }}</div>
             <!-- </el-scrollbar> -->
           </div>
           <div class="huishou" @click="handlehuishouzhanClick"></div>
@@ -81,7 +83,7 @@
          <div class="file-table" v-if="fileTableShow">
             <el-table
               ref="fileTable"
-              :data="fileTableList"
+              :data="rackFileList"
               tooltip-effect="dark"
               style="width: 100%;margin-top:10px;"
               @selection-change="handleSelectionChange">
@@ -92,52 +94,52 @@
               </el-table-column>
               <el-table-column
                 label="文件名"
-                prop="name"
+                prop="docName"
                 align="center"
                 show-overflow-tooltip
                 width="">
                 <template slot-scope="scope">
                   <FileIcon :type="scope.row.type"></FileIcon>
-                  <a class="file-name"  @click="getFileList(scope.row.id, scope.row.name, scope.row)" v-if="scope.row.type === 'folder'">
-                      {{scope.row.name}}
+                  <a class="file-name"  @click="getFileList(scope.row.id, scope.row.docName, scope.row)" v-if="scope.row.type === 'folder'">
+                      {{scope.row.docName}}
                   </a>
                   <a class="file-name" v-else>
-                      {{scope.row.name}}
+                      {{scope.row.docName}}
                   </a>
                 </template>
               </el-table-column>
               <el-table-column
-                prop=""
+                prop="docCount"
                 align="center"
                 label="文件数量(历史文件数)"
                 width="">
               </el-table-column>
               <el-table-column
-                prop="address"
+                prop="version"
                 align="center"
                 label="版本号"
                 show-overflow-tooltip>
               </el-table-column>
               <el-table-column
-                prop="address"
+                prop="docSize"
                 align="center"
                 label="大小"
                 show-overflow-tooltip>
               </el-table-column>
               <el-table-column
-                prop="address"
+                prop="notes"
                 align="center"
                 label="备注"
                 show-overflow-tooltip>
               </el-table-column>
               <el-table-column
-                prop="address"
+                prop="createTime"
                 align="center"
                 label="修改日期"
                 show-overflow-tooltip>
               </el-table-column>
               <el-table-column
-                prop="address"
+                prop="createName"
                 align="center"
                 label="操作人"
                 show-overflow-tooltip>
@@ -151,7 +153,7 @@
            </div>
            <div 
              class="file-list-item"
-             v-for="item in fileTableList"
+             v-for="item in rackFileList"
              :key="item.id"
             >
              <FileItem 
@@ -169,24 +171,90 @@
         title="仓库管理" 
         custom-class="my-dialog"
         :visible.sync="cangkuShowDia">
-      <el-button  type="primary" size="small">新增</el-button>
-      <el-button  type="primary" size="small">修改</el-button>
-      <el-button  type="primary" size="small">删除</el-button>
-      <el-table :data="cangkuTableList">
-        <el-table-column property="date" label="序号" width="60" align="center"></el-table-column>
-        <el-table-column property="name" label="名称" width="" align="center"></el-table-column>
-        <el-table-column property="address" label="说明" align="center"></el-table-column>
-        <el-table-column property="address" label="状态" align="center"></el-table-column>
-      </el-table>
-      <el-pagination
-        @size-change="handleSizeChange_ck"
-        @current-change="handleCurrentChange_ck"
-        :current-page="pagenum_ck"
-        :page-sizes="[10, 50, 100, 200]"
-        :page-size="pagesize_ck"
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="total_ck">
-    </el-pagination>
+        <el-button  type="primary" size="small" @click="handleAddCKClick">新增</el-button>
+        <el-button  type="primary" size="small" @click="handleEditCKClick">修改</el-button>
+        <el-button  type="primary" size="small" @click="handleDeleteCangKu">删除</el-button>
+        <el-table :data="cangkuTableList"  @selection-change="handleSelectionChange_cangku">
+          <el-table-column type="selection" width="60" align="center"></el-table-column>
+          <el-table-column type="index" label="序号" width="60" align="center"></el-table-column>
+          <el-table-column property="name" label="名称" width="" align="center"></el-table-column>
+          <el-table-column property="notes" label="说明" align="center"></el-table-column>
+          <el-table-column property="status" label="状态" align="center">
+            <template slot-scope="scope">
+                <el-tag type="success" size="small" v-if="scope.row.status == '0'">正常</el-tag>
+                <el-tag type="danger" size="small" v-if="scope.row.status == '1'">封闭</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-pagination
+          @size-change="handleSizeChange_ck"
+          @current-change="handleCurrentChange_ck"
+          :current-page="pagenum_ck"
+          :page-sizes="[10, 50, 100, 200]"
+          :page-size="pagesize_ck"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total_ck">
+      </el-pagination>
+    </el-dialog>
+    <!-- 仓库新增弹出框 -->
+    <el-dialog 
+        title="新增仓库" 
+        @close="addCangkuClose('addCangKuForm')"
+        :visible.sync="cangkuAddShowDia">
+        <el-form ref="addCangKuForm" :model="addCangKuForm" label-width="80px" :rules="addCangKuRules">
+          <el-row>
+            <el-col :span="12">
+                <el-form-item label="名称" prop="name">
+                  <el-input v-model="addCangKuForm.name"></el-input>
+                </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="状态" prop="status">
+                <el-select v-model="addCangKuForm.status" placeholder="请选择状态" style="width:100%;">
+                  <el-option label="正常" value="0"></el-option>
+                  <el-option label="封闭" value="1"></el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="备注">
+            <el-input type="textarea" v-model="addCangKuForm.notes"></el-input>
+          </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="cangkuAddShowDia = false">取 消</el-button>
+          <el-button type="primary" @click="handleAddCangkuSubmit('addCangKuForm')">确 定</el-button>
+        </div>
+    </el-dialog>
+    <!-- 仓库修改弹出框 -->
+    <el-dialog 
+        title="修改仓库" 
+        @close="editCangkuClose('editCangKuForm')"
+        :visible.sync="cangkuEditShowDia">
+        <el-form ref="editCangKuForm" :model="editCangKuForm" label-width="80px" :rules="addCangKuRules">
+          <el-row>
+            <el-col :span="12">
+                <el-form-item label="名称" prop="name">
+                  <el-input v-model="editCangKuForm.name"></el-input>
+                </el-form-item>
+            </el-col>
+            <el-col :span="12">
+              <el-form-item label="状态" prop="status">
+                <el-select v-model="editCangKuForm.status" placeholder="请选择状态" style="width:100%;">
+                  <el-option label="正常" value="0"></el-option>
+                  <el-option label="封闭" value="1"></el-option>
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="备注">
+            <el-input type="textarea" v-model="editCangKuForm.notes"></el-input>
+          </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+          <el-button @click="cangkuEditShowDia = false">取 消</el-button>
+          <el-button type="primary" @click="handleEditCangkuSubmit('editCangKuForm')">确 定</el-button>
+        </div>
     </el-dialog>
     <!-- 文案架管理dialog -->
      <el-dialog 
@@ -217,14 +285,15 @@
         title="回收站" 
         custom-class="my-dialog"
         :visible.sync="huishouzhanShowDia">
-      <el-button  type="primary" size="small">彻底删除</el-button>
-      <el-button  type="primary" size="small">还原</el-button>
+      <el-button  type="primary" size="small" @click="deleteFileForerver">彻底删除</el-button>
+      <el-button  type="primary" size="small" @click="handleRestoreReCycle">还原</el-button>
       <span style="margin-left:100px;">回收站为你保存10天内删除的文件</span>
-      <el-table :data="huishouzhanTableList">
-        <el-table-column property="date" label="序号" width="60" align="center"></el-table-column>
-        <el-table-column property="name" label="文档名称" width="" align="center"></el-table-column>
-        <el-table-column property="address" label="删除时间" align="center"></el-table-column>
-        <el-table-column property="address" label="操作人" align="center"></el-table-column>
+      <el-table :data="huishouzhanTableList" @selection-change="handleSelectionChange_hsz">
+        <el-table-column  type="selection" width="60" align="center"></el-table-column>
+        <el-table-column  type="index" label="序号" width="60" align="center"></el-table-column>
+        <el-table-column property="docName" label="文档名称" width="" align="center"></el-table-column>
+        <el-table-column property="ceateTime" label="删除时间" align="center"></el-table-column>
+        <el-table-column property="ceateName" label="操作人" align="center"></el-table-column>
       </el-table>
       <el-pagination
         @size-change="handleSizeChange_hsz"
@@ -259,6 +328,15 @@ import FileItem from './common/FileItem'
 export default {
   data(){
     return {
+      //仓库新增校验
+      addCangKuRules:{
+        name: [
+          { required: true, message: '仓库名称不能为空', trigger: 'blur' }
+        ],
+        status: [
+          { required: true, message: '状态不能为空', trigger: 'change' }
+        ],
+      }, 
       // 仓库数据
       navitemList:[
         {
@@ -279,21 +357,21 @@ export default {
         }
       ],
       // 文案架数据
-      wenanList:[
+      rackNavList:[
         {
-          name:'文案架1',
+          docName:'文案架1',
           id:1
         },
         {
-          name:'文案架2',
+          docName:'文案架2',
           id:2
         },
         {
-          name:'文案架3',
+          docName:'文案架3',
           id:3
         },
         {
-          name:'文案架4',
+          docName:'文案架4',
           id:4
         }
       ],
@@ -301,45 +379,55 @@ export default {
       //显示table还是list
       fileTableShow:true,
       //文件数据
-      fileTableList:[
+      rackFileList:[
         {
           type:'folder',
-          name:'文件夹一',
+          docName:'文件夹一',
           id:'1-1',
           checked:true,
           children:[
             {
               type:'folder',
-              name:'文件夹1-1',
+              docName:'文件夹1-1',
               id:'1-1-1',
             }
           ]
         },
         {
           type:'folder',
-          name:'文件夹2',
+          docName:'文件夹2',
           id:'1-2',
           checked:false
         },
         {
           type:'default',
-          name:'文件3',
+          docName:'文件3',
           id:'1-3'
         },
         {
           type:'pdf',
-          name:'新能源213213124124124.pdf',
+          docName:'新能源213213124124124.pdf',
           id:'1-4'
         }
       ],
+      //仓库nav导航当前选中
+      currentCkNavIndex:0,
       //仓库管理
       cangkuShowDia:false,
       //仓库table数据
       cangkuTableList:[],
+      //仓库选中数据
+      cangkuSelectList:[],
       //仓库管理分页
       pagenum_ck:1,
       pagesize_ck:10,
       total_ck:0,
+      //仓库管理新增
+      addCangKuForm:{status:'0'},
+      cangkuAddShowDia:false,
+      //仓库管理修改
+      editCangKuForm:{},
+      cangkuEditShowDia:false,
       //文案架管理
       wenanjiaShowDia:false,
       //文案架table数据
@@ -352,6 +440,8 @@ export default {
       huishouzhanShowDia:false,
       ///回收站table数据
       huishouzhanTableList:[],
+      //回收站选中数据
+      huishouSelectedList:[],
       ///回收站管理分页
       pagenum_hsz:1,
       pagesize_hsz:10,
@@ -367,7 +457,26 @@ export default {
     FileIcon,
     FileItem
   },
+  mounted(){
+    //获取仓库列表 - 导航数据
+    // this.getWareHoseNavList()
+
+  },
+  computed:{
+    // 当前点击的仓库id
+    currentCkNavId(){
+      if(this.navitemList.length > 0){
+        return this.navitemList[this.currentCkNavIndex].id
+      }else{
+        return null
+      }
+    }
+  },
   methods:{
+    //仓库导航
+    handleCKNavItemClick(index){
+      this.currentCkNavIndex = index
+    },
     // 面包屑导航
     forwardTo(index){
       this.breadLevelList.splice(index + 1, this.breadLevelList.length - index - 1)
@@ -395,7 +504,164 @@ export default {
     },
     //仓库管理点击
     handleCKmangeClick(){
+      // this.getWareHoseDiaList() // 获取仓库管理列表数据
       this.cangkuShowDia = true
+    },
+    //获取仓库管理列表
+    getWareHouseDataList(pageObj){
+       return new Promise((resolve, reject)=>{
+          let { pagenum, pagesize } = pageObj
+          this.$http({
+                url: this.$http.adornUrl('/docLibrary/warehouse/listWarehouse'),
+                method: 'get',
+                params: {
+                  pageNum: pagenum,
+                  pageSize: pagesize
+                }  
+            }).then((res) => {
+                const {data: { code, msg } } = res
+                if(code == 200){
+                    resolve(res)
+                    return
+                }
+                reject(msg)
+            })
+       })
+    },
+    //1. navitemList仓库导航数据
+    async getWareHoseNavList(){
+      let res = await this.getWareHouseDataList({pagenum: 1, pagesize: 20})
+      const {data: { code, result,msg } } = res
+      if(code == 200){
+          this.navitemList = result.list
+          //根据仓库id获取文案架数据以及以下数据
+          this.getWenanJiaWithDocByCKId()
+          return
+      }
+      this.$message.warning(msg)
+    },
+    //2. 获取弹出框仓库列表
+    async getWareHoseDiaList(){
+      let res = await this.getWareHouseDataList({pagenum: this.pagenum_ck, pagesize: this.pagesize_ck})
+      const {data: { code, result,msg } } = res
+      if(code == 200){
+          this.cangkuTableList = result.list
+          this.total_ck = result.total
+          return
+      }
+      this.$message.warning(msg)
+    },
+    // 仓库新增点击
+    handleAddCKClick(){
+      this.cangkuAddShowDia = true
+    },
+    // 新增仓库发送请求
+    handleAddCangkuSubmit(formName){
+      this.$refs[formName].validate((valid) => {
+        if (!valid) {
+          return this.$message.warning('校验失败')
+        } 
+        //发送新增仓库请求
+        this.$http({
+            url: this.$http.adornUrl('/docLibrary/warehouse/save'),
+            method: 'post',
+            data: this.addCangKuForm
+         }).then((res) => {
+            const {data: { code, msg } } = res
+            if(code == 200){
+                this.cangkuAddShowDia = false
+                this.$message.success(msg)
+                this.getWareHoseDiaList()
+                return
+            }
+            this.$message.warning(msg)
+         })
+     })
+    },
+    //新增仓库关闭
+    addCangkuClose(formName){
+      this.addCangKuForm = { status: '0' }
+      this.$refs[formName].resetFields()
+    },
+    handleSelectionChange_cangku(val){
+      this.cangkuSelectList = val
+    },
+    //修改仓库点击
+    handleEditCKClick(){
+      if(this.cangkuSelectList.length === 0){
+        return this.$message.warning('未选择数据')
+      }
+      if(this.cangkuSelectList.length > 1){
+        return this.$message.warning('只能选择一条数据')
+      }
+      let rows = this.cangkuSelectList[0]
+      this.editCangKuForm = rows
+      this.cangkuEditShowDia = true
+    },
+    // 修改仓库发送请求
+    handleEditCangkuSubmit(formName){
+      this.$refs[formName].validate((valid) => {
+        if (!valid) {
+          return this.$message.warning('校验失败')
+        } 
+        //发送修改仓库请求
+        this.$http({
+            url: this.$http.adornUrl('/docLibrary/warehouse/update'),
+            method: 'post',
+            data: this.editCangKuForm
+         }).then((res) => {
+            const {data: { code, msg } } = res
+            if(code == 200){
+                this.cangkuEditShowDia = false
+                this.$message.success(msg)
+                this.getWareHoseDiaList()
+                return
+            }
+            this.$message.warning(msg)
+         })
+     })
+    },
+    //修改仓库关闭
+    editCangkuClose(formName){
+      this.addCangKuForm = {}
+      this.$refs[formName].resetFields()
+      this.cangkuSelectList = []
+    },
+    //删除仓库
+    handleDeleteCangKu(){
+      // 校验
+      if(this.cangkuSelectList.length == 0){
+          this.$message.warning('请选择一条数据')
+          return
+      }
+      this.$confirm(`选中[${this.cangkuSelectList.length}]条记录`, '确定删除?', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+      }).then(() => {
+      // 处理参数
+      const nolist = this.cangkuSelectList.map(item => item.id)
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/warehouse/delete'),
+          method: 'post',
+          data: nolist.join(',')
+          }).then((res) => {
+          const {data: { code, msg } } = res
+          if(code == 200){
+              this.$message.success(msg)
+              this.pagenum_ck = 1
+              this.getWareHoseDiaList()
+              return
+          }
+          this.$message.warning(msg)
+          })
+      
+      }).catch(() => {
+          this.$message({
+              type: 'info',
+              message: '已取消'
+          });          
+          });
     },
     //仓库管理分页
     handleSizeChange_ck(val){
@@ -408,6 +674,24 @@ export default {
     handlewenanjiaClick(){
        this.wenanjiaShowDia = true
     },
+    //根据仓库id获取文案架数据及以下数据
+    getWenanJiaWithDocByCKId(){
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/copywritingRack/listDoc'),
+          method: 'post',
+          data: {
+            warehouseId: this.currentCkNavId
+          }
+      }).then((res) => {
+        const {data: { code,result, msg } } = res
+        if(code == 200){
+            this.rackNavList = result.rackList //文案架nav数据
+            this.rackFileList = result.rackFileList // 文件列表数据
+            return
+        }
+        this.$message.warning(msg)
+      })
+    },
     //文案架管理分页
     handleSizeChange_waj(val){
       this.pagesize_waj = val
@@ -417,9 +701,110 @@ export default {
     },
     //回收站点击
     handlehuishouzhanClick(){
+      this.getCycleList()
       this.huishouzhanShowDia = true
     },
-     //仓库管理分页
+    //获取回收站列表
+    getCycleList(){
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/copywritingRack/listCycle'),
+          method: 'post',
+          data: {
+            pageNum: this.pagenum_hsz,
+            pageSize: this.pagesize_hsz
+
+          }
+      }).then((res) => {
+        const {data: { code,result, msg } } = res
+        if(code == 200){
+            this.huishouzhanTableList = result.list
+            this.total_hsz = result.total
+            return
+        }
+        this.$message.warning(msg)
+      })
+    },
+    //回收站选中数据
+    handleSelectionChange_hsz(val){
+      this.huishouSelectedList = val
+    },
+    // 彻底删除
+    deleteFileForerver(){
+      // 校验
+      if(this.huishouSelectedList.length == 0){
+          this.$message.warning('请选择一条数据')
+          return
+      }
+      this.$confirm(`选中[${this.huishouSelectedList.length}]条记录`, '确定彻底删除?', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+      }).then(() => {
+      // 处理参数
+      const nolist = this.huishouSelectedList.map(item => item.id)
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/copywritingRack/deleteCycle'),
+          method: 'post',
+          data: {
+            reCycleBinId: nolist
+          }
+          }).then((res) => {
+          const {data: { code, msg } } = res
+          if(code == 200){
+              this.$message.success(msg)
+              this.pagenum_hsz = 1
+              this.getCycleList()
+              return
+          }
+          this.$message.warning(msg)
+          })
+      
+      }).catch(() => {
+          this.$message({
+              type: 'info',
+              message: '已取消'
+          });          
+       });
+    },
+    //还原
+    handleRestoreReCycle(){
+      // 校验
+      if(this.huishouSelectedList.length == 0){
+          this.$message.warning('请选择一条数据')
+          return
+      }
+      this.$confirm(`选中[${this.huishouSelectedList.length}]条记录`, '确定还原?', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'success'
+      }).then(() => {
+      // 处理参数
+      const nolist = this.huishouSelectedList.map(item => item.id)
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/copywritingRack/restoreReCycle'),
+          method: 'post',
+          data: {
+            reCycleBinId: nolist
+          }
+          }).then((res) => {
+          const {data: { code, msg } } = res
+          if(code == 200){
+              this.$message.success(msg)
+              this.pagenum_hsz = 1
+              this.getCycleList()
+              return
+          }
+          this.$message.warning(msg)
+          })
+      
+      }).catch(() => {
+          this.$message({
+              type: 'info',
+              message: '已取消'
+          });          
+       });
+    },
+    //回收站分页
     handleSizeChange_hsz(val){
       this.pagesize_hsz = val
     },
@@ -431,7 +816,7 @@ export default {
     getFileList(id, name, row){
       let obj = {name:name, id: id}
       this.addToBread(obj)
-      this.fileTableList = row.children
+      this.rackFileList = row.children
     }
   }
   
