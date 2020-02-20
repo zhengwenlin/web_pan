@@ -32,7 +32,7 @@
               <div 
                 v-for="item in rackNavList"
                 :Key="item.id"
-                class="wen-li" @click="addToBread(item, true)">{{ item.docName }}</div>
+                class="wen-li" @click="rackNavClick(item)">{{ item.docName }}</div>
             <!-- </el-scrollbar> -->
           </div>
           <div class="huishou" @click="handlehuishouzhanClick"></div>
@@ -43,7 +43,7 @@
               <el-button class="el-icon-upload2" type="primary"> 上传</el-button>
               <el-button class="el-icon-folder-opened" plain @click="handleAddWenjianjaClick"> 新建文件夹</el-button>
               <el-button class="el-icon-download" plain> 下载</el-button>
-              <el-button class="el-icon-delete" plain> 删除</el-button>
+              <el-button class="el-icon-delete" plain @click="handleFileDeleteClick"> 删除</el-button>
            </div>
            <div class="too-ipt">
               <el-input 
@@ -69,14 +69,14 @@
                        v-for="(item, index) in breadLevelList"
                        :key="item.id"
                       >
-                        <a href="javascript:;">{{ item.name }}</a>
+                        <a href="javascript:;">{{ item.docName }}</a>
                       </el-breadcrumb-item>
                     </el-breadcrumb>
                  </el-col>
                </el-row>
             </div>
             <div class="bread-right">
-              已全部加载完，共33个
+              已全部加载完，共 {{ fileTotal }} 个
             </div>
          </div>
          <!-- files -->
@@ -100,7 +100,7 @@
                 width="">
                 <template slot-scope="scope">
                   <FileIcon :type="scope.row.type"></FileIcon>
-                  <a class="file-name"  @click="getFileList(scope.row.id, scope.row.docName, scope.row)" v-if="scope.row.type === 'folder'">
+                  <a class="file-name"  @click="handleFolderClick(scope.row.id, scope.row.docName, scope.row)" v-if="scope.row.type === 'folder'">
                       {{scope.row.docName}}
                   </a>
                   <a class="file-name" v-else>
@@ -375,6 +375,8 @@ export default {
           id:4
         }
       ],
+      // table选中数据
+      rackFileSelectedList:[],
       searchvalue:'',
       //显示table还是list
       fileTableShow:true,
@@ -470,33 +472,102 @@ export default {
       }else{
         return null
       }
+    },
+    // 文件总数
+    fileTotal(){
+      return this.rackFileList.length
     }
   },
   methods:{
+    /*
+      仓库点击: 文案架数据变， 文件数据变， 面包屑变
+      文案架点击：文件数据变，面包屑变
+    */
     //仓库导航
     handleCKNavItemClick(index){
       this.currentCkNavIndex = index
+      // 根据仓库id获取文案架数据和文件数据
+      this.getWenanJiaWithDocByCKId()
+      // 面包屑直接置空
+      this.breadLevelList = []
     },
     // 面包屑导航
     forwardTo(index){
       this.breadLevelList.splice(index + 1, this.breadLevelList.length - index - 1)
+      // 获取file数据
+      if(this.breadLevelList === 0) return
+      let item = this.breadLevelList[this.breadLevelList.length - 1]
+      // 判断是文案架 还是 文件夹
+      let isFolder = true //假设是文件夹
+      isFolder ? this.getFileListByFolderId(item.id) : this.getFileDataByRackId(item.id)
+    },
+    //文案架nav点击
+    rackNavClick(item){
+       this.breadLevelList = [item] //文案架点击设置面包屑
+      //this.getFileDataByRackId(item.id) // 根据文案架id获取文件夹及文件
     },
     // 添加面包屑导航
-    addToBread(item, flag){
-      if(flag){
-        if(this.breadLevelList.length===0){
-          this.breadLevelList = [item]
-        }else{
-          if(item.id !== this.breadLevelList[0].id){
-            this.breadLevelList = [item]
-          }
-        }
-      }else{
-        this.breadLevelList.push(item)
-      }
+    addToBread(item){
+      this.breadLevelList.push(item)
     },
-    handleSelectionChange(){
-
+    // 根据文案架id获取文件夹及文件
+    getFileDataByRackId(rackId){
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/copywritingRack/listRack'),
+          method: 'post',
+          data: rackId
+      }).then((res) => {
+        const {data: { code, result, msg } } = res
+        if(code == 200){
+            this.rackFileList = result
+            return
+        }
+        this.$message.warning(msg)
+      })
+    },
+    // 文件夹点击
+    handleFolderClick(id, name, row){
+      let obj = {docName:name, id: id}
+      this.addToBread(obj) // 添加面包屑
+      this.getFileListByFolderId(id, name, row) // 文件夹id获取文件夹及文件
+    },
+    // 根据文件夹id获取文件夹及文件
+    getFileListByFolderId(id, name, row){
+      this.rackFileList = row.children
+      return
+      // this.$http({
+      //     url: this.$http.adornUrl('/docLibrary/copywritingRack/listRackFile'),
+      //     method: 'post',
+      //     data: id
+      // }).then((res) => {
+      //   const {data: { code, result, msg } } = res
+      //   if(code == 200){
+      //       this.rackFileList = result
+      //       return
+      //   }
+      //   this.$message.warning(msg)
+      // })
+    },
+    //根据仓库id获取文案架数据及以下数据
+    getWenanJiaWithDocByCKId(){
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/copywritingRack/listDoc'),
+          method: 'post',
+          data: {
+            warehouseId: this.currentCkNavId
+          }
+      }).then((res) => {
+        const {data: { code,result, msg } } = res
+        if(code == 200){
+            this.rackNavList = result.rackList //文案架nav数据
+            this.rackFileList = result.rackFileList // 文件列表数据
+            return
+        }
+        this.$message.warning(msg)
+      })
+    },
+    handleSelectionChange(val){
+      this.rackFileSelectedList = val
     },
     //新建文件夹点击
     handleAddWenjianjaClick(){
@@ -674,24 +745,6 @@ export default {
     handlewenanjiaClick(){
        this.wenanjiaShowDia = true
     },
-    //根据仓库id获取文案架数据及以下数据
-    getWenanJiaWithDocByCKId(){
-      this.$http({
-          url: this.$http.adornUrl('/docLibrary/copywritingRack/listDoc'),
-          method: 'post',
-          data: {
-            warehouseId: this.currentCkNavId
-          }
-      }).then((res) => {
-        const {data: { code,result, msg } } = res
-        if(code == 200){
-            this.rackNavList = result.rackList //文案架nav数据
-            this.rackFileList = result.rackFileList // 文件列表数据
-            return
-        }
-        this.$message.warning(msg)
-      })
-    },
     //文案架管理分页
     handleSizeChange_waj(val){
       this.pagesize_waj = val
@@ -811,12 +864,48 @@ export default {
     handleCurrentChange_hsz(val){
       this.pagenum_hsz = val
     },
-    // 文件操作
-    //1. 获取文件table数据
-    getFileList(id, name, row){
-      let obj = {name:name, id: id}
-      this.addToBread(obj)
-      this.rackFileList = row.children
+    // 删除到回收站
+    handleFileDeleteClick(){
+      // 校验
+      if(this.rackFileSelectedList.length == 0){
+          this.$message.warning('请选择一条数据')
+          return
+      }
+      if(this.rackFileSelectedList.length > 1){
+          this.$message.warning('只能删除一条数据')
+          return
+      }
+      this.$confirm(`选中[${this.rackFileSelectedList.length}]条记录`, '确定删除?', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+      }).then(() => {
+      // 处理参数
+      const rackItem = this.rackFileSelectedList[0]
+      this.$http({
+          url: this.$http.adornUrl('/docLibrary/copywritingRack/svaeCycle'),
+          method: 'post',
+          data: {
+            copywritingRackId: rackItem.id,
+            id: this.currentCkNavId, //仓库id
+            isFile: rackItem.isFile
+          }
+          }).then((res) => {
+          const {data: { code, msg } } = res
+          if(code == 200){
+              this.$message.success(msg)
+              this.getWenanJiaWithDocByCKId()
+              return
+          }
+          this.$message.warning(msg)
+          })
+      
+      }).catch(() => {
+          this.$message({
+              type: 'info',
+              message: '已取消'
+          });          
+       });
     }
   }
   
